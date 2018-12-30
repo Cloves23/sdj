@@ -63,14 +63,14 @@ class Management:
     @staticmethod
     def app_permissions(root_app):
         """
-        Gets the permissions module for an app. The module name will assume "APP_PERMISSIONS_MODULE", if set to
+        Gets the permissions module for an app. The module name will assume "SDJ_PERMISSIONS_MODULE", if set to
         "settings", or ".permissions".
 
         :param root_app: Name of the app.
         :return: The respective module.
         """
         global _module_permissions_cache
-        module = getattr(settings, 'APP_PERMISSIONS_MODULE', '.permissions')
+        module = getattr(settings, 'SDJ_PERMISSIONS_MODULE', '.permissions')
         if root_app in _module_permissions_cache:
             return _module_permissions_cache[root_app]
         module = import_module(module, root_app)
@@ -146,21 +146,20 @@ class MetaGroup:
                     else:
                         self._permissions[app][modelo].extend(new_perms[app][modelo])
 
-    def _add_users_rules(self, rules):
-        if not isinstance(rules, list):
-            rules = [rules]
-        if self._users_rules:
-            self._users_rules.extend(rules)
+    def update_list(self, new, old: list):
+        if not isinstance(new, list):
+            new = [new]
+        if old:
+            old.extend(new)
         else:
-            self._users_rules = rules
+            old = new[:]
+        return old
+
+    def _add_users_rules(self, rules):
+        self._users_rules = self.update_list(rules, self._users_rules)
 
     def _add_non_users_rules(self, rules):
-        if not isinstance(rules, list):
-            rules = [rules]
-        if self._non_users_rules:
-            self._non_users_rules.extend(rules)
-        else:
-            self._non_users_rules = rules
+        self._non_users_rules = self.update_list(rules, self._non_users_rules)
 
     @property
     def filter_perms(self):
@@ -220,10 +219,11 @@ class MetaGroup:
         Search for new users who are not in the group.
 
         :return: QuerySet of "User"
-        :raise ValueError: Case rules for new users is not defined.
         """
-        if self._users_rules is not None:
+        if self._users_rules:
             return User.objects.filter(*self._users_rules, ~Q(groups=self.djgroup))
+        elif self._non_users_rules:
+            return User.objects.filter(~Q(groups=self.djgroup)).exclude(*self._non_users_rules)
         return User.objects.none()
 
     def check_for_non_users(self):
@@ -231,10 +231,11 @@ class MetaGroup:
         Search for users who should not be in the group.
 
         :return: QuerySet of "User"
-        :raise ValueError: Case rules for non users is not defined.
         """
-        if self._non_users_rules is not None:
+        if self._non_users_rules:
             return User.objects.filter(*self._non_users_rules, Q(groups=self.djgroup))
+        elif self._users_rules:
+            return User.objects.filter(Q(groups=self.djgroup)).exclude(*self._users_rules)
         return User.objects.none()
 
     def update_group(self):
@@ -248,7 +249,7 @@ class MetaGroup:
         """
         Update group permissions.
         """
-        filtro = self.filter_perms()
+        filtro = self.filter_perms
         if filtro:
             perms = Permission.objects.filter(filtro)
             self.djgroup.permissions.add(*perms)
