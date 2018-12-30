@@ -82,7 +82,7 @@ def fnc_msg_n_visualizada(usuario, mensagem):
     return mensagem.visualizada
 ```
 
-Como pode-se perceber, para definir cada grupo é necessário que seu nome **sempre** inicie com **Group**. Além disso,
+Como pode-se perceber, para definir cada grupo é necessário que o nome da classe **sempre** inicie com **Group**. Além disso,
 também é possível notar que apenas dois atributos apareceram na definição dos dois grupos, `name` e `permissions`,
 subentendendo que são obrigatórios. A listagem a seguir mostra mais detalhes sobre cada atributo:
 
