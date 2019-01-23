@@ -29,10 +29,10 @@ class Management:
     def init_groups(sender, *args, **kwargs):
         global _groups_cache
         _groups_cache.clear()
-        Management.process_groups(sender.apps.app_configs)
+        Management.process_permissions(sender.apps.app_configs)
 
     @staticmethod
-    def process_groups(app_configs=apps.app_configs):
+    def process_permissions(app_configs=apps.app_configs):
         groups = GroupsManager()
         for app_name in app_configs:
             try:
@@ -42,21 +42,7 @@ class Management:
             for gp_name in filter(lambda m: m.startswith('Group'), dir(groups_perms)):
                 group_app = getattr(groups_perms, gp_name)
                 group = groups.get(group_app.name)
-                if not group:
-                    group = MetaGroup(group_app.name, getattr(group_app, 'users_rules', None),
-                                      getattr(group_app, 'non_users_rules', None))
-                else:
-                    if hasattr(group_app, 'users_rules'):
-                        if isinstance(group_app.users_rules, list):
-                            group._add_users_rules(group_app.users_rules)
-                        else:
-                            group._add_users_rules(group_app.users_rules)
-                    if hasattr(group_app, 'non_users_rules'):
-                        if isinstance(group_app.non_users_rules, list):
-                            group._add_non_users_rules(group_app.non_users_rules)
-                        else:
-                            group._add_non_users_rules(group_app.non_users_rules)
-                if hasattr(group_app, 'permrissions'):
+                if hasattr(group_app, 'permissions'):
                     group._add_perms({app_name: group_app.permissions})
             groups.update_groups()
 
