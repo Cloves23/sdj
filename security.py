@@ -56,7 +56,7 @@ class Management:
                             group._add_non_users_rules(group_app.non_users_rules)
                         else:
                             group._add_non_users_rules(group_app.non_users_rules)
-                if hasattr(group_app, 'permissions'):
+                if hasattr(group_app, 'permrissions'):
                     group._add_perms({app_name: group_app.permissions})
             groups.update_groups()
 
@@ -281,6 +281,7 @@ class GroupsManager:
         global _groups_manager
         if not _groups_manager:
             _groups_manager = super(GroupsManager, cls).__new__(cls, *args, **kwargs)
+            cls._load_groups()
         return _groups_manager
 
     def __repr__(self):
@@ -291,12 +292,43 @@ class GroupsManager:
     def __getitem__(self, group_name):
         global _groups_cache
         return _groups_cache[group_name]
-    get = __getitem__
-    group = __getitem__
 
-    # def get(self, group_name):
-    #     global _groups_cache
-    #     return _groups_cache.get(group_name, None)
+    @staticmethod
+    def _reload_grous():
+        global _groups_cache
+        _groups_cache.clear()
+        GroupsManager._load_groups()
+
+    @staticmethod
+    def _load_groups():
+        global _groups_cache
+        for app_name in apps.app_configs:
+            try:
+                groups_perms = Management.app_permissions(app_name)
+            except (SystemError, ModuleNotFoundError):
+                continue
+            for gp_name in filter(lambda m: m.startswith('Group'), dir(groups_perms)):
+                group_app = getattr(groups_perms, gp_name)
+                group = _groups_cache.get(group_app.name, None)
+                if not group:
+                    MetaGroup(group_app.name, getattr(group_app, 'users_rules', None),
+                              getattr(group_app, 'non_users_rules', None))
+                else:
+                    if hasattr(group_app, 'users_rules'):
+                        if isinstance(group_app.users_rules, list):
+                            group._add_users_rules(group_app.users_rules)
+                        else:
+                            group._add_users_rules(group_app.users_rules)
+                    if hasattr(group_app, 'non_users_rules'):
+                        if isinstance(group_app.non_users_rules, list):
+                            group._add_non_users_rules(group_app.non_users_rules)
+                        else:
+                            group._add_non_users_rules(group_app.non_users_rules)
+
+    def get(self, group_name, default=None):
+        global _groups_cache
+        return _groups_cache.get(group_name, default)
+    group = get
 
     @property
     def groups(self):
@@ -320,3 +352,5 @@ class GroupsManager:
         for group in _groups_cache:
             res = res or _groups_cache[group].check_user(user)
         return res
+
+
